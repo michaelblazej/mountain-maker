@@ -1,7 +1,9 @@
 mod dla_2d;
+mod blur;
 
 use anyhow::Result;
-use dla_2d::{DlaSimulation, DlaParameters, Array2D, ParticleData};
+use dla_2d::{DlaSimulation, DlaParameters, Array2D};
+use blur::{upsample, upsample_and_blur, box_blur, BlurOptions};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -41,6 +43,24 @@ fn main() -> Result<()> {
     let output_path = "dla_base_grid_hires.txt";
     export_grid_to_file(&high_res_grid, output_path)?;
     println!("High-resolution DLA grid exported to {}", output_path);
+    
+    // Create an upsampled grid with linear interpolation
+    let upsampled_grid = upsample(&grid, 4, Some(BlurOptions { strength: 0.7 }));
+    let output_path = "dla_base_grid_upsampled.txt";
+    export_grid_to_file(&upsampled_grid, output_path)?;
+    println!("Upsampled DLA grid exported to {}", output_path);
+    
+    // Create a blurred version of the upsampled grid
+    let blurred_grid = box_blur(&upsampled_grid, 1);
+    let output_path = "dla_base_grid_blurred.txt";
+    export_grid_to_file(&blurred_grid, output_path)?;
+    println!("Blurred DLA grid exported to {}", output_path);
+    
+    // Combined upsampling and blurring in one step
+    let smooth_grid = upsample_and_blur(&grid, 4, 1);
+    let output_path = "dla_base_grid_smooth.txt";
+    export_grid_to_file(&smooth_grid, output_path)?;
+    println!("Smooth DLA grid exported to {}", output_path);
     
     // Print some statistics
     let (base_width, base_height) = simulation.get_dimensions();
