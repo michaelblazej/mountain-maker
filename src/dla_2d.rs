@@ -120,11 +120,20 @@ impl Default for DlaParameters {
     }
 }
 
+/// Particle data in the DLA simulation
+#[derive(Debug, Clone, Copy)]
+pub struct ParticleData {
+    /// The index of when this particle was added
+    pub index: i32,
+    /// Reference to the particle it got stuck to (-1 for the initial seed)
+    pub stuck_to: i32,
+}
+
 /// Represents the state of a 2D Diffusion Limited Aggregation simulation
 #[derive(Debug, Clone)]
 pub struct DlaSimulation {
-    /// Settled particles forming the structure with their addition index
-    pub particles: HashMap<GridPoint, i32>,
+    /// Settled particles forming the structure with their data
+    pub particles: HashMap<GridPoint, ParticleData>,
     /// Bounds of the simulation space (min_x, min_y, max_x, max_y)
     pub bounds: (i32, i32, i32, i32),
     /// Parameters controlling the simulation
@@ -156,8 +165,8 @@ impl DlaSimulation {
             max_distance: 0.0,
         };
         
-        // Add a single seed particle at the center with index 0
-        simulation.particles.insert(center, 0);
+        // Add a single seed particle at the center with index 0 and no parent (-1)
+        simulation.particles.insert(center, ParticleData { index: 0, stuck_to: -1 });
         
         simulation
     }
@@ -183,7 +192,7 @@ impl DlaSimulation {
         new_simulation.params = source.params.clone();
         
         // Scale and copy particles from source simulation
-        for (p, index) in &source.particles {
+        for (p, particle_data) in &source.particles {
             // Calculate relative position from old center
             let rel_x = p.x - source.center.x;
             let rel_y = p.y - source.center.y;
@@ -196,9 +205,9 @@ impl DlaSimulation {
             let new_x = new_simulation.center.x + scaled_x;
             let new_y = new_simulation.center.y + scaled_y;
             
-            // Add particle to new simulation with the same index
+            // Add particle to new simulation with the same data
             let new_particle = GridPoint::new(new_x, new_y);
-            new_simulation.particles.insert(new_particle, *index);
+            new_simulation.particles.insert(new_particle, *particle_data);
             
             // Update max distance
             let dist = ((scaled_x * scaled_x + scaled_y * scaled_y) as f32).sqrt();
@@ -267,9 +276,15 @@ impl DlaSimulation {
             
             // Check if particle should settle
             if self.should_settle(position) {
-                // Convert to grid position and add to settled particles with its index
+                // Find which particle this one is sticking to
+                let stuck_to_particle = self.find_nearby_particle(position);
+                
+                // Convert to grid position and add to settled particles with its data
                 let grid_pos = GridPoint::from_vec2(position);
-                self.particles.insert(grid_pos, index);
+                self.particles.insert(grid_pos, ParticleData { 
+                    index, 
+                    stuck_to: stuck_to_particle 
+                });
                 
                 // Update max distance if needed
                 let distance = ((grid_pos.x - self.center.x).pow(2) + 
@@ -309,6 +324,13 @@ impl DlaSimulation {
     
     /// Check if a particle should settle at the given position
     fn should_settle(&mut self, position: Vec2) -> bool {
+        // Find if there's a nearby particle to stick to
+        self.find_nearby_particle(position) >= 0
+    }
+    
+    /// Find the index of a nearby particle this one might stick to
+    /// Returns the index of that particle, or -1 if none found
+    fn find_nearby_particle(&mut self, position: Vec2) -> i32 {
         // Convert to grid position
         let grid_pos = GridPoint::from_vec2(position);
         
@@ -321,16 +343,16 @@ impl DlaSimulation {
                 
                 let check_pos = GridPoint::new(grid_pos.x + dx, grid_pos.y + dy);
                 
-                if self.particles.contains_key(&check_pos) {
+                if let Some(particle_data) = self.particles.get(&check_pos) {
                     // Apply stickiness factor
                     if self.rng.r#gen::<f32>() < self.params.stickiness {
-                        return true;
+                        return particle_data.index;
                     }
                 }
             }
         }
         
-        false
+        -1 // No particle found to stick to
     }
     
     /// Update the radius based on the current structure size

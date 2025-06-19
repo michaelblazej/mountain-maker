@@ -1,7 +1,7 @@
 mod dla_2d;
 
 use anyhow::Result;
-use dla_2d::{DlaSimulation, DlaParameters, Array2D};
+use dla_2d::{DlaSimulation, DlaParameters, Array2D, ParticleData};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -54,11 +54,11 @@ fn export_to_csv(simulation: &DlaSimulation, path: &str) -> Result<()> {
     let mut writer = BufWriter::new(file);
     
     // Write header
-    writeln!(writer, "x,y,index")?;
+    writeln!(writer, "x,y,index,stuck_to")?;
     
     // Write each particle position
-    for (particle, idx) in &simulation.particles {
-        writeln!(writer, "{},{},{}", particle.x, particle.y, idx)?;
+    for (particle, data) in &simulation.particles {
+        writeln!(writer, "{},{},{},{}", particle.x, particle.y, data.index, data.stuck_to)?;
     }
     
     Ok(())
