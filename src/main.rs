@@ -29,11 +29,18 @@ fn main() -> Result<()> {
     export_to_csv(&simulation, output_path)?;
     println!("Base DLA simulation exported to {}", output_path);
     
-    // Convert to grid and export
-    let grid = simulation.to_grid();
+    // Convert to grid and export at different resolutions
+    // Standard resolution (1:1)
+    let grid = simulation.to_grid(1);
     let output_path = "dla_base_grid.txt";
     export_grid_to_file(&grid, output_path)?;
     println!("Base DLA grid exported to {}", output_path);
+    
+    // Higher resolution with connected points
+    let high_res_grid = simulation.to_grid(3);
+    let output_path = "dla_base_grid_hires.txt";
+    export_grid_to_file(&high_res_grid, output_path)?;
+    println!("High-resolution DLA grid exported to {}", output_path);
     
     // Print some statistics
     let (base_width, base_height) = simulation.get_dimensions();

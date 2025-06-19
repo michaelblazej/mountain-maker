@@ -395,27 +395,116 @@ impl DlaSimulation {
     }
     
     /// Convert the DLA simulation to a 2D grid (Array2D) where cells with particles are 1 and others are 0
-    pub fn to_grid(&self) -> Array2D {
+    /// 
+    /// # Arguments
+    /// * `resolution` - The resolution factor. Higher values create a finer grid.
+    ///                  A resolution of 1 creates a 1-to-1 mapping from particles to grid cells.
+    ///                  A resolution of 2 creates a grid with 2x2 cells per particle spacing, etc.
+    ///                  Connected particles will have their gaps filled in at higher resolutions.
+    pub fn to_grid(&self, resolution: usize) -> Array2D {
         // Get the bounds of the particles
         let (min_x, min_y, max_x, max_y) = self.get_particle_bounds();
         
-        // Calculate grid dimensions
-        let width = (max_x - min_x + 1) as usize;
-        let height = (max_y - min_y + 1) as usize;
+        // Calculate grid dimensions with the resolution factor
+        let width = ((max_x - min_x + 1) * resolution as i32) as usize;
+        let height = ((max_y - min_y + 1) * resolution as i32) as usize;
         
         // Create a new grid filled with zeros
         let mut grid = Array2D::new(width, height, 0);
         
-        // Fill in the grid where particles are present
-        for (p, _idx) in &self.particles {
-            // Map particle coordinates to grid indices
-            let grid_x = (p.x - min_x) as usize;
-            let grid_y = (p.y - min_y) as usize;
+        // First pass: Mark all particle positions
+        let mut particle_positions = Vec::new();
+        for (p, data) in &self.particles {
+            // Map particle coordinates to high-resolution grid indices
+            let grid_x = ((p.x - min_x) * resolution as i32) as usize;
+            let grid_y = ((p.y - min_y) * resolution as i32) as usize;
             
             // Set the grid value to 1 where a particle exists
             grid.set(grid_x, grid_y, 1);
+            particle_positions.push((grid_x, grid_y, data.index));
+        }
+        
+        // Second pass: Connect particles that are related (one stuck to another)
+        if resolution > 1 {
+            // Create a mapping from particle index to grid position
+            let mut index_to_position = HashMap::new();
+            for (x, y, index) in &particle_positions {
+                index_to_position.insert(*index, (*x, *y));
+            }
+            
+            // Connect particles with their parents
+            for (p, data) in &self.particles {
+                // Skip the seed particle
+                if data.stuck_to < 0 {
+                    continue;
+                }
+                
+                // Get positions of this particle and the one it stuck to
+                let child_pos = ((p.x - min_x) * resolution as i32) as usize;
+                let child_y = ((p.y - min_y) * resolution as i32) as usize;
+                
+                if let Some(&(parent_x, parent_y)) = index_to_position.get(&data.stuck_to) {
+                    // Draw a line between the two points using Bresenham's line algorithm
+                    self.draw_line(&mut grid, child_pos, child_y, parent_x, parent_y);
+                }
+            }
         }
         
         grid
+    }
+    
+    /// Convert the DLA simulation to a 2D grid with default resolution (1:1 mapping)
+    pub fn to_grid_default(&self) -> Array2D {
+        self.to_grid(1)
+    }
+    
+    /// Draw a line between two points in the grid using Bresenham's line algorithm
+    fn draw_line(&self, grid: &mut Array2D, x0: usize, y0: usize, x1: usize, y1: usize) {
+        // Convert to isize for calculations
+        let x0 = x0 as isize;
+        let y0 = y0 as isize;
+        let x1 = x1 as isize;
+        let y1 = y1 as isize;
+        
+        let dx = (x1 - x0).abs();
+        let sx = if x0 < x1 { 1 } else { -1 };
+        let dy = -((y1 - y0).abs()); // Negative because y increases downward in our grid
+        let sy = if y0 < y1 { 1 } else { -1 };
+        let mut err = dx + dy;
+        
+        let mut x = x0;
+        let mut y = y0;
+        
+        loop {
+            // Set the current pixel if it's within bounds
+            if x >= 0 && y >= 0 && x < grid.width() as isize && y < grid.height() as isize {
+                grid.set(x as usize, y as usize, 1);
+            }
+            
+            // Check if we've reached the end point
+            if x == x1 && y == y1 {
+                break;
+            }
+            
+            let e2 = 2 * err;
+            
+            // Handle horizontal movement
+            if e2 >= dy {
+                if x == x1 {
+                    break;
+                }
+                err += dy;
+                x += sx;
+            }
+            
+            // Handle vertical movement
+            if e2 <= dx {
+                if y == y1 {
+                    break;
+                }
+                err += dx;
+                y += sy;
+            }
+        }
     }
 }
