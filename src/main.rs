@@ -3,7 +3,7 @@ mod blur;
 
 use anyhow::Result;
 use dla_2d::{DlaSimulation, DlaParameters, Array2D};
-use blur::{upsample, upsample_and_blur, box_blur, BlurOptions};
+use blur::{upsample, upsample_and_blur, box_blur, mean_filter, gaussian_filter, BlurOptions};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -61,6 +61,18 @@ fn main() -> Result<()> {
     let output_path = "dla_base_grid_smooth.txt";
     export_grid_to_file(&smooth_grid, output_path)?;
     println!("Smooth DLA grid exported to {}", output_path);
+    
+    // Apply mean filter convolution
+    let mean_grid = mean_filter(&upsampled_grid, 3);
+    let output_path = "dla_base_grid_mean.txt";
+    export_grid_to_file(&mean_grid, output_path)?;
+    println!("Mean filtered grid exported to {}", output_path);
+    
+    // Apply Gaussian filter convolution
+    let gaussian_grid = gaussian_filter(&upsampled_grid, 5, 1.0);
+    let output_path = "dla_base_grid_gaussian.txt";
+    export_grid_to_file(&gaussian_grid, output_path)?;
+    println!("Gaussian filtered grid exported to {}", output_path);
     
     // Print some statistics
     let (base_width, base_height) = simulation.get_dimensions();

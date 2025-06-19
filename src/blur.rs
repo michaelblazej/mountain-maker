@@ -141,3 +141,147 @@ pub fn upsample_and_blur(grid: &Array2D, scale: usize, blur_radius: usize) -> Ar
     let upsampled = upsample(grid, scale, None);
     box_blur(&upsampled, blur_radius)
 }
+
+/// A 2D convolution kernel
+pub struct Kernel {
+    /// The kernel data as a flattened array
+    data: Vec<f32>,
+    /// Width of the kernel
+    width: usize,
+    /// Height of the kernel
+    height: usize,
+}
+
+impl Kernel {
+    /// Create a new kernel with the given data and dimensions
+    pub fn new(data: Vec<f32>, width: usize, height: usize) -> Self {
+        assert_eq!(data.len(), width * height, "Kernel data size must match width * height");
+        Kernel { data, width, height }
+    }
+    
+    /// Create a mean filter kernel of the specified size
+    pub fn mean(size: usize) -> Self {
+        let mut data = vec![1.0; size * size];
+        let sum: f32 = data.iter().sum();
+        
+        // Normalize to ensure the sum of all weights is 1
+        for val in data.iter_mut() {
+            *val /= sum;
+        }
+        
+        Kernel::new(data, size, size)
+    }
+    
+    /// Create a Gaussian kernel of the specified size
+    pub fn gaussian(size: usize, sigma: f32) -> Self {
+        assert!(size % 2 == 1, "Kernel size must be odd");
+        
+        let mut data = vec![0.0; size * size];
+        let center = (size / 2) as f32;
+        let mut sum = 0.0;
+        
+        // Generate Gaussian values
+        for y in 0..size {
+            for x in 0..size {
+                let dx = x as f32 - center;
+                let dy = y as f32 - center;
+                let distance_squared = dx * dx + dy * dy;
+                let exponent = -distance_squared / (2.0 * sigma * sigma);
+                let value = (exponent.exp()) / (2.0 * std::f32::consts::PI * sigma * sigma);
+                
+                data[y * size + x] = value;
+                sum += value;
+            }
+        }
+        
+        // Normalize
+        for val in data.iter_mut() {
+            *val /= sum;
+        }
+        
+        Kernel::new(data, size, size)
+    }
+    
+    /// Get the kernel value at the given position
+    pub fn get(&self, x: usize, y: usize) -> f32 {
+        self.data[y * self.width + x]
+    }
+}
+
+/// Apply a convolution kernel to a grid
+/// 
+/// * `grid` - The source grid
+/// * `kernel` - The kernel to apply
+/// 
+/// Returns a new grid after convolution
+pub fn convolve(grid: &Array2D, kernel: &Kernel) -> Array2D {
+    let width = grid.width();
+    let height = grid.height();
+    let kw = kernel.width;
+    let kh = kernel.height;
+    
+    // Ensure kernel size is odd
+    assert!(kw % 2 == 1 && kh % 2 == 1, "Kernel dimensions must be odd");
+    
+    // Calculate padding needed
+    let pad_x = kw / 2;
+    let pad_y = kh / 2;
+    
+    // Create result grid
+    let mut result = Array2D::new(width, height, 0);
+    
+    // For each pixel in the grid
+    for y in 0..height {
+        for x in 0..width {
+            let mut sum = 0.0;
+            
+            // Apply kernel
+            for ky in 0..kh {
+                for kx in 0..kw {
+                    // Calculate input coordinates with respect to kernel center
+                    let ix = x as isize + (kx as isize - pad_x as isize);
+                    let iy = y as isize + (ky as isize - pad_y as isize);
+                    
+                    // Handle borders (zero padding)
+                    if ix < 0 || iy < 0 || ix >= width as isize || iy >= height as isize {
+                        continue;
+                    }
+                    
+                    // Get the input value and kernel weight
+                    if let Some(value) = grid.get(ix as usize, iy as usize) {
+                        sum += value as f32 * kernel.get(kx, ky);
+                    }
+                }
+            }
+            
+            // Convert to binary result
+            let value = if sum >= 0.5 { 1 } else { 0 };
+            result.set(x, y, value);
+        }
+    }
+    
+    result
+}
+
+/// Apply a mean filter convolution to a grid
+/// 
+/// * `grid` - The source grid
+/// * `size` - The size of the filter kernel (should be odd)
+/// 
+/// Returns a new grid after mean filtering
+pub fn mean_filter(grid: &Array2D, size: usize) -> Array2D {
+    let kernel = Kernel::mean(size);
+    convolve(grid, &kernel)
+}
+
+/// Apply a Gaussian filter convolution to a grid
+/// 
+/// * `grid` - The source grid
+/// * `size` - The size of the filter kernel (should be odd)
+/// * `sigma` - Standard deviation of the Gaussian function
+/// 
+/// Returns a new grid after Gaussian filtering
+pub fn gaussian_filter(grid: &Array2D, size: usize, sigma: f32) -> Array2D {
+    let kernel = Kernel::gaussian(size, sigma);
+    convolve(grid, &kernel)
+}
