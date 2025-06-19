@@ -54,11 +54,11 @@ fn export_to_csv(simulation: &DlaSimulation, path: &str) -> Result<()> {
     let mut writer = BufWriter::new(file);
     
     // Write header
-    writeln!(writer, "x,y")?;
+    writeln!(writer, "x,y,index")?;
     
     // Write each particle position
-    for particle in &simulation.particles {
-        writeln!(writer, "{},{}", particle.x, particle.y)?;
+    for (particle, idx) in &simulation.particles {
+        writeln!(writer, "{},{},{}", particle.x, particle.y, idx)?;
     }
     
     Ok(())

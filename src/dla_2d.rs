@@ -1,7 +1,7 @@
 use anyhow::Result;
 use glam::Vec2;
 use rand::prelude::*;
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 /// A simple 2D array representation
 #[derive(Debug, Clone)]
@@ -123,8 +123,8 @@ impl Default for DlaParameters {
 /// Represents the state of a 2D Diffusion Limited Aggregation simulation
 #[derive(Debug, Clone)]
 pub struct DlaSimulation {
-    /// Settled particles forming the structure
-    pub particles: HashSet<GridPoint>,
+    /// Settled particles forming the structure with their addition index
+    pub particles: HashMap<GridPoint, i32>,
     /// Bounds of the simulation space (min_x, min_y, max_x, max_y)
     pub bounds: (i32, i32, i32, i32),
     /// Parameters controlling the simulation
@@ -147,7 +147,7 @@ impl DlaSimulation {
         let center = GridPoint::new(center_x, center_y);
         
         let mut simulation = DlaSimulation {
-            particles: HashSet::new(),
+            particles: HashMap::new(),
             bounds: (0, 0, width, height),
             params: DlaParameters::default(),
             rng: thread_rng(),
@@ -156,8 +156,8 @@ impl DlaSimulation {
             max_distance: 0.0,
         };
         
-        // Add a single seed particle at the center
-        simulation.particles.insert(center);
+        // Add a single seed particle at the center with index 0
+        simulation.particles.insert(center, 0);
         
         simulation
     }
@@ -183,7 +183,7 @@ impl DlaSimulation {
         new_simulation.params = source.params.clone();
         
         // Scale and copy particles from source simulation
-        for p in &source.particles {
+        for (p, index) in &source.particles {
             // Calculate relative position from old center
             let rel_x = p.x - source.center.x;
             let rel_y = p.y - source.center.y;
@@ -196,9 +196,9 @@ impl DlaSimulation {
             let new_x = new_simulation.center.x + scaled_x;
             let new_y = new_simulation.center.y + scaled_y;
             
-            // Add particle to new simulation
+            // Add particle to new simulation with the same index
             let new_particle = GridPoint::new(new_x, new_y);
-            new_simulation.particles.insert(new_particle);
+            new_simulation.particles.insert(new_particle, *index);
             
             // Update max distance
             let dist = ((scaled_x * scaled_x + scaled_y * scaled_y) as f32).sqrt();
@@ -222,7 +222,7 @@ impl DlaSimulation {
                 println!("Processed {} particles", i);
             }
             
-            self.add_particle()?;
+            self.add_particle(i as i32 + 1)?; // +1 because we already used 0 for the seed
             
             // Update spawn radius based on current structure size
             self.update_radius();
@@ -233,12 +233,12 @@ impl DlaSimulation {
     }
     
     /// Add a single particle to the simulation
-    pub fn add_particle(&mut self) -> Result<()> {
+    pub fn add_particle(&mut self, index: i32) -> Result<()> {
         // Generate random position on the perimeter
         let particle_pos = self.generate_random_start_position();
         
         // Perform random walk until particle settles or leaves bounds
-        self.random_walk(particle_pos)
+        self.random_walk(particle_pos, index)
     }
     
     /// Generate a random starting position around the current structure
@@ -258,7 +258,7 @@ impl DlaSimulation {
     }
     
     /// Perform random walk for a particle until it settles or leaves bounds
-    fn random_walk(&mut self, mut position: Vec2) -> Result<()> {        
+    fn random_walk(&mut self, mut position: Vec2, index: i32) -> Result<()> {        
         for _ in 0..self.params.max_steps_per_particle {
             // Check if particle is out of bounds
             if !self.is_in_bounds(position) {
@@ -267,9 +267,9 @@ impl DlaSimulation {
             
             // Check if particle should settle
             if self.should_settle(position) {
-                // Convert to grid position and add to settled particles
+                // Convert to grid position and add to settled particles with its index
                 let grid_pos = GridPoint::from_vec2(position);
-                self.particles.insert(grid_pos);
+                self.particles.insert(grid_pos, index);
                 
                 // Update max distance if needed
                 let distance = ((grid_pos.x - self.center.x).pow(2) + 
@@ -321,7 +321,7 @@ impl DlaSimulation {
                 
                 let check_pos = GridPoint::new(grid_pos.x + dx, grid_pos.y + dy);
                 
-                if self.particles.contains(&check_pos) {
+                if self.particles.contains_key(&check_pos) {
                     // Apply stickiness factor
                     if self.rng.r#gen::<f32>() < self.params.stickiness {
                         return true;
@@ -345,7 +345,7 @@ impl DlaSimulation {
         let mut max_x = i32::MIN;
         let mut max_y = i32::MIN;
         
-        for p in &self.particles {
+        for (p, _index) in &self.particles {
             min_x = min_x.min(p.x);
             min_y = min_y.min(p.y);
             max_x = max_x.max(p.x);
@@ -362,7 +362,7 @@ impl DlaSimulation {
         let mut max_x = i32::MIN;
         let mut max_y = i32::MIN;
         
-        for p in &self.particles {
+        for (p, _) in &self.particles {
             min_x = min_x.min(p.x);
             min_y = min_y.min(p.y);
             max_x = max_x.max(p.x);
@@ -385,7 +385,7 @@ impl DlaSimulation {
         let mut grid = Array2D::new(width, height, 0);
         
         // Fill in the grid where particles are present
-        for p in &self.particles {
+        for (p, _idx) in &self.particles {
             // Map particle coordinates to grid indices
             let grid_x = (p.x - min_x) as usize;
             let grid_y = (p.y - min_y) as usize;
