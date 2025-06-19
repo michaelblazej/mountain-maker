@@ -424,7 +424,7 @@ impl DlaSimulation {
             particle_positions.push((grid_x, grid_y, data.index));
         }
         
-        // Second pass: Connect particles that are related (one stuck to another)
+        // Second pass: Connect particles in multiple ways to create a more connected appearance
         if resolution > 1 {
             // Create a mapping from particle index to grid position
             let mut index_to_position = HashMap::new();
@@ -432,7 +432,15 @@ impl DlaSimulation {
                 index_to_position.insert(*index, (*x, *y));
             }
             
-            // Connect particles with their parents
+            // Store all particle positions for nearest neighbor processing
+            let mut all_positions = Vec::new();
+            for (p, _) in &self.particles {
+                let x = ((p.x - min_x) * resolution as i32) as usize;
+                let y = ((p.y - min_y) * resolution as i32) as usize;
+                all_positions.push((x, y));
+            }
+            
+            // 1. Connect each particle with the one it stuck to
             for (p, data) in &self.particles {
                 // Skip the seed particle
                 if data.stuck_to < 0 {
@@ -440,14 +448,39 @@ impl DlaSimulation {
                 }
                 
                 // Get positions of this particle and the one it stuck to
-                let child_pos = ((p.x - min_x) * resolution as i32) as usize;
+                let child_x = ((p.x - min_x) * resolution as i32) as usize;
                 let child_y = ((p.y - min_y) * resolution as i32) as usize;
                 
                 if let Some(&(parent_x, parent_y)) = index_to_position.get(&data.stuck_to) {
-                    // Draw a line between the two points using Bresenham's line algorithm
-                    self.draw_line(&mut grid, child_pos, child_y, parent_x, parent_y);
+                    // Draw a thicker line between the two points for better connectivity
+                    self.draw_thick_line(&mut grid, child_x, child_y, parent_x, parent_y, resolution / 2);
                 }
             }
+            
+            // 2. Connect nearby particles when they are within a certain distance
+            let connection_threshold = resolution * 3; // Adjust this threshold to control aggressiveness
+            
+            for i in 0..all_positions.len() {
+                let (x1, y1) = all_positions[i];
+                
+                // Check against a subset of other positions to avoid excessive processing
+                // This is a simplified approach - in a real application, you might use a spatial partitioning
+                // structure like a quadtree for better performance with large numbers of particles
+                for j in (i + 1)..all_positions.len() {
+                    let (x2, y2) = all_positions[j];
+                    
+                    // Calculate Manhattan distance (faster than Euclidean)
+                    let dist = ((x1 as isize - x2 as isize).abs() + (y1 as isize - y2 as isize).abs()) as usize;
+                    
+                    // If particles are close but not directly adjacent, connect them
+                    if dist > 1 && dist <= connection_threshold {
+                        self.draw_line(&mut grid, x1, y1, x2, y2);
+                    }
+                }
+            }
+            
+            // 3. Fill in small gaps
+            self.fill_gaps(&mut grid);
         }
         
         grid
@@ -504,6 +537,113 @@ impl DlaSimulation {
                 }
                 err += dx;
                 y += sy;
+            }
+        }
+    }
+    
+    /// Draw a thicker line between two points by drawing multiple parallel lines
+    fn draw_thick_line(&self, grid: &mut Array2D, x0: usize, y0: usize, x1: usize, y1: usize, thickness: usize) {
+        // First draw the main line
+        self.draw_line(grid, x0, y0, x1, y1);
+        
+        // Skip additional processing for thickness of 1
+        if thickness <= 1 {
+            return;
+        }
+        
+        // Convert to isize for calculations
+        let x0 = x0 as isize;
+        let y0 = y0 as isize;
+        let x1 = x1 as isize;
+        let y1 = y1 as isize;
+        
+        // Calculate the direction vector of the line
+        let dx = x1 - x0;
+        let dy = y1 - y0;
+        
+        // Calculate the length of the line
+        let length = ((dx * dx + dy * dy) as f64).sqrt();
+        
+        // Skip if length is 0 or too small
+        if length < 0.1 {
+            return;
+        }
+        
+        // Calculate the normalized perpendicular vector
+        let px = -dy as f64 / length;
+        let py = dx as f64 / length;
+        
+        // Draw additional lines parallel to the main line
+        let radius = thickness as isize / 2;
+        for offset in 1..=radius {
+            // Offset in the positive perpendicular direction
+            let ox1 = (x0 as f64 + px * offset as f64).round() as isize;
+            let oy1 = (y0 as f64 + py * offset as f64).round() as isize;
+            let ox2 = (x1 as f64 + px * offset as f64).round() as isize;
+            let oy2 = (y1 as f64 + py * offset as f64).round() as isize;
+            
+            // Draw the positive offset line if coordinates are valid
+            if ox1 >= 0 && oy1 >= 0 && ox2 >= 0 && oy2 >= 0 && 
+               ox1 < grid.width() as isize && oy1 < grid.height() as isize && 
+               ox2 < grid.width() as isize && oy2 < grid.height() as isize {
+                self.draw_line(grid, ox1 as usize, oy1 as usize, ox2 as usize, oy2 as usize);
+            }
+            
+            // Offset in the negative perpendicular direction
+            let ox1 = (x0 as f64 - px * offset as f64).round() as isize;
+            let oy1 = (y0 as f64 - py * offset as f64).round() as isize;
+            let ox2 = (x1 as f64 - px * offset as f64).round() as isize;
+            let oy2 = (y1 as f64 - py * offset as f64).round() as isize;
+            
+            // Draw the negative offset line if coordinates are valid
+            if ox1 >= 0 && oy1 >= 0 && ox2 >= 0 && oy2 >= 0 && 
+               ox1 < grid.width() as isize && oy1 < grid.height() as isize && 
+               ox2 < grid.width() as isize && oy2 < grid.height() as isize {
+                self.draw_line(grid, ox1 as usize, oy1 as usize, ox2 as usize, oy2 as usize);
+            }
+        }
+    }
+    
+    /// Fill small gaps in the grid to create a more connected appearance
+    fn fill_gaps(&self, grid: &mut Array2D) {
+        let width = grid.width();
+        let height = grid.height();
+        
+        // Create a copy of the grid to check against while we modify the original
+        let original = grid.clone();
+        
+        // Iterate through all cells in the grid
+        for y in 1..height-1 {
+            for x in 1..width-1 {
+                // Skip cells that are already filled
+                if original.get(x, y) == Some(1) {
+                    continue;
+                }
+                
+                // Count the number of filled neighbors
+                let mut filled_count = 0;
+                
+                // Check 8 surrounding neighbors
+                for dy in -1..=1 {
+                    for dx in -1..=1 {
+                        if dx == 0 && dy == 0 {
+                            continue; // Skip the center cell
+                        }
+                        
+                        let nx = (x as isize + dx) as usize;
+                        let ny = (y as isize + dy) as usize;
+                        
+                        if nx < width && ny < height && original.get(nx, ny) == Some(1) {
+                            filled_count += 1;
+                        }
+                    }
+                }
+                
+                // Fill this cell if it has enough filled neighbors
+                // This creates a more connected appearance by filling in small gaps
+                if filled_count >= 5 { // Threshold can be adjusted for different connectivity levels
+                    grid.set(x, y, 1);
+                }
             }
         }
     }
