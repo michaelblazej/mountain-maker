@@ -1,7 +1,7 @@
 mod dla_2d;
 
 use anyhow::Result;
-use dla_2d::{DlaSimulation, DlaParameters};
+use dla_2d::{DlaSimulation, DlaParameters, Array2D};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -29,25 +29,18 @@ fn main() -> Result<()> {
     export_to_csv(&simulation, output_path)?;
     println!("Base DLA simulation exported to {}", output_path);
     
-    // Create a new simulation with increased dimensions
-    println!("Creating scaled-up simulation with 2.5x dimensions...");
-    let scale_factor = 2.5;
-    let scaled_simulation = DlaSimulation::with_increased_dimensions(&simulation, scale_factor);
-    
-    // Export the scaled simulation to a CSV file
-    let output_path = "dla_scaled.csv";
-    export_to_csv(&scaled_simulation, output_path)?;
-    println!("Scaled DLA simulation exported to {}", output_path);
+    // Convert to grid and export
+    let grid = simulation.to_grid();
+    let output_path = "dla_base_grid.txt";
+    export_grid_to_file(&grid, output_path)?;
+    println!("Base DLA grid exported to {}", output_path);
     
     // Print some statistics
     let (base_width, base_height) = simulation.get_dimensions();
-    let (scaled_width, scaled_height) = scaled_simulation.get_dimensions();
     
     println!("\nStatistics:");
     println!("  Base simulation:  {} particles, {}x{} dimensions", 
              simulation.particles.len(), base_width, base_height);
-    println!("  Scaled simulation: {} particles, {}x{} dimensions", 
-             scaled_simulation.particles.len(), scaled_width, scaled_height);
     
     println!("\nDone! You can visualize the CSV files with a spreadsheet program ");
     println!("or using a visualization tool to see the patterns created.");
@@ -66,6 +59,32 @@ fn export_to_csv(simulation: &DlaSimulation, path: &str) -> Result<()> {
     // Write each particle position
     for particle in &simulation.particles {
         writeln!(writer, "{},{}", particle.x, particle.y)?;
+    }
+    
+    Ok(())
+}
+
+/// Export a 2D grid to a text file
+fn export_grid_to_file(grid: &Array2D, path: &str) -> Result<()> {
+    let file = File::create(path)?;
+    let mut writer = BufWriter::new(file);
+    
+    // Write grid dimensions as a header comment
+    writeln!(writer, "# Grid dimensions: {} x {}", grid.width(), grid.height())?;
+    
+    // Write each row of the grid
+    for y in 0..grid.height() {
+        let mut line = String::with_capacity(grid.width());
+        for x in 0..grid.width() {
+            if let Some(value) = grid.get(x, y) {
+                if value > 0 {
+                    line.push('#'); // Use '#' character for particles
+                } else {
+                    line.push('.');  // Use '.' for empty space
+                }
+            }
+        }
+        writeln!(writer, "{}", line)?;
     }
     
     Ok(())
@@ -90,7 +109,6 @@ fn _example_parameter_variations() -> Result<()> {
         spawn_radius_factor: 1.2, // Spawn particles closer to the structure
         max_steps_per_particle: 3000,
     };
-    
     println!("Parameter variation examples defined");
     Ok(())
 }

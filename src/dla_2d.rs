@@ -3,6 +3,69 @@ use glam::Vec2;
 use rand::prelude::*;
 use std::collections::HashSet;
 
+/// A simple 2D array representation
+#[derive(Debug, Clone)]
+pub struct Array2D {
+    /// Width of the 2D array
+    width: usize,
+    /// Height of the 2D array
+    height: usize,
+    /// Data storage in row-major order
+    data: Vec<i32>,
+}
+
+impl Array2D {
+    /// Create a new 2D array with the specified dimensions, filled with the given value
+    pub fn new(width: usize, height: usize, initial_value: i32) -> Self {
+        let data = vec![initial_value; width * height];
+        Array2D {
+            width,
+            height,
+            data,
+        }
+    }
+    
+    /// Get the value at the specified coordinates
+    pub fn get(&self, x: usize, y: usize) -> Option<i32> {
+        if x >= self.width || y >= self.height {
+            return None;
+        }
+        
+        let index = y * self.width + x;
+        self.data.get(index).copied()
+    }
+    
+    /// Set the value at the specified coordinates
+    pub fn set(&mut self, x: usize, y: usize, value: i32) -> bool {
+        if x >= self.width || y >= self.height {
+            return false;
+        }
+        
+        let index = y * self.width + x;
+        if let Some(cell) = self.data.get_mut(index) {
+            *cell = value;
+            return true;
+        }
+        
+        false
+    }
+    
+    /// Get the width of the 2D array
+    pub fn width(&self) -> usize {
+        self.width
+    }
+    
+    /// Get the height of the 2D array
+    pub fn height(&self) -> usize {
+        self.height
+    }
+    
+    /// Get a reference to the underlying data
+    pub fn data(&self) -> &[i32] {
+        &self.data
+    }
+}
+
 /// A 2D point in the simulation grid
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GridPoint {
@@ -290,5 +353,47 @@ impl DlaSimulation {
         }
         
         (max_x - min_x + 1, max_y - min_y + 1)
+    }
+    
+    /// Get the bounds of the particles (min_x, min_y, max_x, max_y)
+    pub fn get_particle_bounds(&self) -> (i32, i32, i32, i32) {
+        let mut min_x = i32::MAX;
+        let mut min_y = i32::MAX;
+        let mut max_x = i32::MIN;
+        let mut max_y = i32::MIN;
+        
+        for p in &self.particles {
+            min_x = min_x.min(p.x);
+            min_y = min_y.min(p.y);
+            max_x = max_x.max(p.x);
+            max_y = max_y.max(p.y);
+        }
+        
+        (min_x, min_y, max_x, max_y)
+    }
+    
+    /// Convert the DLA simulation to a 2D grid (Array2D) where cells with particles are 1 and others are 0
+    pub fn to_grid(&self) -> Array2D {
+        // Get the bounds of the particles
+        let (min_x, min_y, max_x, max_y) = self.get_particle_bounds();
+        
+        // Calculate grid dimensions
+        let width = (max_x - min_x + 1) as usize;
+        let height = (max_y - min_y + 1) as usize;
+        
+        // Create a new grid filled with zeros
+        let mut grid = Array2D::new(width, height, 0);
+        
+        // Fill in the grid where particles are present
+        for p in &self.particles {
+            // Map particle coordinates to grid indices
+            let grid_x = (p.x - min_x) as usize;
+            let grid_y = (p.y - min_y) as usize;
+            
+            // Set the grid value to 1 where a particle exists
+            grid.set(grid_x, grid_y, 1);
+        }
+        
+        grid
     }
 }
