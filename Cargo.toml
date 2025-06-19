@@ -1,0 +1,11 @@
+[package]
+name = "mountain-maker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mesh-tools = "0.4"
+rand = "0.8"
+glam = "0.24"
+bytemuck = "1.14"
+anyhow = "1.0"
