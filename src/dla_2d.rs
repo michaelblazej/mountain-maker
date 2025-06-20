@@ -70,9 +70,7 @@ impl Array2D {
     /// 
     /// This scales all values proportionally so the maximum value in the array equals target_max
     /// If the maximum value is 0, no normalization is done to avoid division by zero
-    /// 
-    /// Returns the normalized array (consumes self)
-    pub fn normalize(mut self, target_max: f32) -> Self {
+    pub fn normalize(&mut self, target_max: f32) -> &mut Self {
         // Find the current maximum value in the array
         if let Some(max_value) = self.data.iter().cloned().fold(None, |max, x| {
             match max {
@@ -90,7 +88,7 @@ impl Array2D {
             }
         }
         
-        // Return self
+        // Return self for method chaining
         self
     }
 }
