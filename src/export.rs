@@ -76,6 +76,12 @@ pub fn export_array_to_glb(
         }
     }
     
+    // Create a terrain material
+    let terrain_material = builder.create_basic_material(
+        Some("TerrainMaterial".to_string()),
+        [0.5, 0.8, 0.3, 1.0]  // Green-ish color for terrain
+    );
+    
     // Create the mesh using the high-level API
     let mesh_index = builder.create_simple_mesh(
         Some("TerrainMesh".to_string()),
@@ -83,7 +89,7 @@ pub fn export_array_to_glb(
         &indices,
         Some(normals),
         Some(texcoords),
-        None // No material
+        Some(terrain_material)
     );
     
     // Add a node referencing the mesh
