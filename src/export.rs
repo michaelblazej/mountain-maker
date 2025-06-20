@@ -2,7 +2,7 @@ use crate::dla_2d::Array2D;
 use anyhow::Result;
 use mesh_tools::GltfBuilder;
 use mesh_tools::Triangle;
-use mesh_tools::compat::{Point3, Vector2, Vector3};
+// No need for compat imports as we're using the create_simple_mesh API
 
 /// Exports the given Array2D as a 3D mesh in GLB format
 /// 
@@ -158,6 +158,7 @@ fn calculate_normal(
 /// 
 /// # Returns
 /// * `Result<()>` - Success or error
+#[allow(dead_code)]
 pub fn export_array_to_glb_default(array: &Array2D, output_path: &str) -> Result<()> {
     export_array_to_glb(array, 1.0, 1.0, 1.0, output_path)
 }

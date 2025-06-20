@@ -140,6 +140,7 @@ pub fn upsample_and_blur(grid: &Array2D, scale: usize, blur_radius: usize) -> Ar
 }
 
 /// A 2D convolution kernel
+#[allow(dead_code)]
 pub struct Kernel {
     /// The kernel data as a flattened array
     data: Vec<f32>,
@@ -151,12 +152,14 @@ pub struct Kernel {
 
 impl Kernel {
     /// Create a new kernel with the given data and dimensions
+    #[allow(dead_code)]
     pub fn new(data: Vec<f32>, width: usize, height: usize) -> Self {
         assert_eq!(data.len(), width * height, "Kernel data size must match width * height");
         Kernel { data, width, height }
     }
     
     /// Create a mean filter kernel of the specified size
+    #[allow(dead_code)]
     pub fn mean(size: usize) -> Self {
         let mut data = vec![1.0; size * size];
         let sum: f32 = data.iter().sum();
@@ -170,6 +173,7 @@ impl Kernel {
     }
     
     /// Create a Gaussian kernel of the specified size
+    #[allow(dead_code)]
     pub fn gaussian(size: usize, sigma: f32) -> Self {
         assert!(size % 2 == 1, "Kernel size must be odd");
         
@@ -200,6 +204,7 @@ impl Kernel {
     }
     
     /// Get the kernel value at the given position
+    #[allow(dead_code)]
     pub fn get(&self, x: usize, y: usize) -> f32 {
         self.data[y * self.width + x]
     }
@@ -211,6 +216,7 @@ impl Kernel {
 /// * `kernel` - The kernel to apply
 /// 
 /// Returns a new grid after convolution
+#[allow(dead_code)]
 pub fn convolve(grid: &Array2D, kernel: &Kernel) -> Array2D {
     let width = grid.width();
     let height = grid.height();
@@ -266,6 +272,7 @@ pub fn convolve(grid: &Array2D, kernel: &Kernel) -> Array2D {
 /// * `size` - The size of the filter kernel (should be odd)
 /// 
 /// Returns a new grid after mean filtering
+#[allow(dead_code)]
 pub fn mean_filter(grid: &Array2D, size: usize) -> Array2D {
     let kernel = Kernel::mean(size);
     convolve(grid, &kernel)
@@ -278,6 +285,7 @@ pub fn mean_filter(grid: &Array2D, size: usize) -> Array2D {
 /// * `sigma` - Standard deviation of the Gaussian function
 /// 
 /// Returns a new grid after Gaussian filtering
+#[allow(dead_code)]
 pub fn gaussian_filter(grid: &Array2D, size: usize, sigma: f32) -> Array2D {
     let kernel = Kernel::gaussian(size, sigma);
     convolve(grid, &kernel)

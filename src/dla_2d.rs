@@ -101,6 +101,7 @@ impl Array2D {
     }
     
     /// Get a reference to the underlying data
+    #[allow(dead_code)]
     pub fn data(&self) -> &[f32] {
         &self.data
     }
@@ -170,6 +171,7 @@ impl GridPoint {
         GridPoint { x, y }
     }
     
+    #[allow(dead_code)]
     pub fn to_vec2(&self) -> Vec2 {
         Vec2::new(self.x as f32, self.y as f32)
     }
@@ -178,6 +180,7 @@ impl GridPoint {
         GridPoint::new(v.x.round() as i32, v.y.round() as i32)
     }
     
+    #[allow(dead_code)]
     pub fn distance_squared(&self, other: &GridPoint) -> i32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
@@ -242,6 +245,7 @@ pub struct DlaSimulation {
 
 impl DlaSimulation {
     /// Create a new DLA simulation with default parameters
+    #[allow(dead_code)]
     pub fn new(width: i32, height: i32) -> Self {
         Self::with_seed(width, height, None)
     }
@@ -278,6 +282,7 @@ impl DlaSimulation {
 
     
     /// Create a new DLA simulation with custom parameters
+    #[allow(dead_code)]
     pub fn with_params(width: i32, height: i32, params: DlaParameters) -> Self {
         Self::with_params_and_seed(width, height, params, None)
     }
@@ -290,6 +295,7 @@ impl DlaSimulation {
     }
 
     /// Create a new DLA simulation based on an existing one but with increased dimensions
+    #[allow(dead_code)]
     pub fn with_increased_dimensions(source: &DlaSimulation, scale_factor: f32) -> Self {
         let (old_min_x, old_min_y, old_max_x, old_max_y) = source.bounds;
         let old_width = old_max_x - old_min_x;
@@ -472,6 +478,7 @@ impl DlaSimulation {
     }
     
     /// Get the dimensions of the structure (width, height)
+    #[allow(dead_code)]
     pub fn get_dimensions(&self) -> (i32, i32) {
         let mut min_x = i32::MAX;
         let mut min_y = i32::MAX;
@@ -598,6 +605,7 @@ impl DlaSimulation {
     }
     
     /// Convert the DLA simulation to a 2D grid with default resolution (1:1 mapping)
+    #[allow(dead_code)]
     pub fn to_grid_default(&self) -> Array2D {
         self.to_grid(1)
     }

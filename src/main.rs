@@ -4,12 +4,12 @@ mod export;
 
 use anyhow::Result;
 use dla_2d::{DlaSimulation, DlaParameters, Array2D};
-use blur::{upsample, upsample_and_blur, box_blur, BlurOptions};
 use export::export_array_to_glb;
+use blur::{upsample_and_blur, box_blur, BlurOptions};
+use clap::Parser;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
-use clap::Parser;
 
 // Define the CLI with clap
 #[derive(Parser)]
@@ -112,7 +112,7 @@ fn main() -> Result<()> {
     simulation.run()?;
     
     // Start to build the mountains with CLI parameters
-    let blur_options = Some(BlurOptions{strength: cli.blur_strength});
+    let _blur_options = Some(BlurOptions{strength: cli.blur_strength});
     let blur_radius = cli.blur_radius; 
     let upsample_factor = cli.upsample_factor;
     let num_steps = cli.steps;
@@ -181,6 +181,7 @@ fn main() -> Result<()> {
 }
 
 /// Export a DLA simulation to a CSV file
+#[allow(dead_code)]
 fn export_to_csv(simulation: &DlaSimulation, path: &str) -> Result<()> {
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
