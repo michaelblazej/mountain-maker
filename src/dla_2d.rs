@@ -1,6 +1,45 @@
 use anyhow::Result;
 use glam::Vec2;
 use rand::prelude::*;
+use rand::{RngCore, SeedableRng};
+use rand::rngs::{StdRng, ThreadRng};
+
+/// RNG type for DLA simulation that can be either random or seeded
+#[derive(Debug, Clone)]
+enum SimulationRng {
+    ThreadRandom(ThreadRng),
+    Seeded(StdRng),
+}
+
+impl RngCore for SimulationRng {
+    fn next_u32(&mut self) -> u32 {
+        match self {
+            SimulationRng::ThreadRandom(rng) => rng.next_u32(),
+            SimulationRng::Seeded(rng) => rng.next_u32(),
+        }
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        match self {
+            SimulationRng::ThreadRandom(rng) => rng.next_u64(),
+            SimulationRng::Seeded(rng) => rng.next_u64(),
+        }
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        match self {
+            SimulationRng::ThreadRandom(rng) => rng.fill_bytes(dest),
+            SimulationRng::Seeded(rng) => rng.fill_bytes(dest),
+        }
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+        match self {
+            SimulationRng::ThreadRandom(rng) => rng.try_fill_bytes(dest),
+            SimulationRng::Seeded(rng) => rng.try_fill_bytes(dest),
+        }
+    }
+}
 use std::collections::HashMap;
 use std::ops::Add;
 
@@ -192,7 +231,7 @@ pub struct DlaSimulation {
     /// Parameters controlling the simulation
     pub params: DlaParameters,
     /// Random number generator for the simulation
-    rng: ThreadRng,
+    rng: SimulationRng,
     /// Current radius of the structure (for spawning new particles)
     radius: f32,
     /// Center of the simulation
@@ -202,31 +241,50 @@ pub struct DlaSimulation {
 }
 
 impl DlaSimulation {
-    /// Create a new DLA simulation with the given dimensions
+    /// Create a new DLA simulation with default parameters
     pub fn new(width: i32, height: i32) -> Self {
+        Self::with_seed(width, height, None)
+    }
+
+    /// Create a new DLA simulation with a specific random seed
+    pub fn with_seed(width: i32, height: i32, seed: Option<u64>) -> Self {
         let center_x = width / 2;
         let center_y = height / 2;
-        let center = GridPoint::new(center_x, center_y);
+        let center = GridPoint { x: center_x, y: center_y };
+
+        // Create the first "seed" particle at the center
+        let mut particles = HashMap::new();
+        particles.insert(center.clone(), ParticleData { 
+            index: 0, 
+            stuck_to: -1,
+        });
         
-        let mut simulation = DlaSimulation {
-            particles: HashMap::new(),
+        // Initialize RNG based on seed
+        let rng = match seed {
+            Some(seed_value) => SimulationRng::Seeded(StdRng::seed_from_u64(seed_value)),
+            None => SimulationRng::ThreadRandom(thread_rng())
+        };
+
+        Self {
+            particles,
             bounds: (0, 0, width, height),
             params: DlaParameters::default(),
-            rng: thread_rng(),
+            rng,
             radius: 1.0,
             center,
             max_distance: 0.0,
-        };
-        
-        // Add a single seed particle at the center with index 0 and no parent (-1)
-        simulation.particles.insert(center, ParticleData { index: 0, stuck_to: -1 });
-        
-        simulation
+        }
     }
+
     
     /// Create a new DLA simulation with custom parameters
     pub fn with_params(width: i32, height: i32, params: DlaParameters) -> Self {
-        let mut simulation = Self::new(width, height);
+        Self::with_params_and_seed(width, height, params, None)
+    }
+    
+    /// Create a new DLA simulation with custom parameters and a specific random seed
+    pub fn with_params_and_seed(width: i32, height: i32, params: DlaParameters, seed: Option<u64>) -> Self {
+        let mut simulation = Self::with_seed(width, height, seed);
         simulation.params = params;
         simulation
     }

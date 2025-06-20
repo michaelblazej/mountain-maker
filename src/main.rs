@@ -56,9 +56,14 @@ struct Cli {
     #[arg(help = "Blur strength (0.0-1.0)")]
     blur_strength: f32,
 
+    // Randomization control
+    #[arg(long)]
+    #[arg(help = "Random seed for reproducible terrain generation")]
+    seed: Option<u64>,
+
     // Export parameters
-    #[arg(long, default_value_t = String::from("mountain_mesh.glb"))]
-    #[arg(help = "Output path for the GLB file")]
+    #[arg(short = 'o', long, default_value = "mountain_mesh.glb")]
+    #[arg(help = "Output path for the GLB file")]    
     output: String,
 
     #[arg(long, default_value_t = 1.0)]
@@ -69,7 +74,7 @@ struct Cli {
     #[arg(help = "Y-axis scale factor")]
     scale_y: f32,
 
-    #[arg(long, default_value_t = 10.0)]
+    #[arg(long, default_value_t = 200.0)]
     #[arg(help = "Z-axis height scale factor")]
     scale_z: f32,
 
@@ -95,9 +100,15 @@ fn main() -> Result<()> {
     
     // Create and run the DLA simulation
     println!("Creating DLA simulation with size {}x{}...", cli.width, cli.height);
-    let mut simulation = DlaSimulation::with_params(cli.width, cli.height, params);
     
+    // Display seed and particle information
     println!("Running DLA simulation with {} particles...", cli.particles);
+    match cli.seed {
+        Some(seed) => println!("Using random seed: {}", seed),
+        None => println!("Using random seed: [default random]"),
+    }
+    
+    let mut simulation = DlaSimulation::with_params_and_seed(cli.width, cli.height, params, cli.seed);
     simulation.run()?;
     
     // Start to build the mountains with CLI parameters
