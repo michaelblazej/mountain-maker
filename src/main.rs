@@ -28,9 +28,9 @@ fn main() -> Result<()> {
     
     // Start to build the mountains
     let blur_options = Some(BlurOptions{strength: 0.7});
-    let blur_radius = 4; // Blur radius for upsample_and_blur
+    let blur_radius = 8; // Blur radius for upsample_and_blur
     let upsample_factor = 2; // Upscale factor for each iteration
-    let num_steps = 10; // Number of iterations
+    let num_steps = 4; // Number of iterations
     
     // Initialize with the base grid
     let mut current_grid = simulation.to_grid(1);
@@ -45,10 +45,12 @@ fn main() -> Result<()> {
         let grid_blur = upsample_and_blur(&current_grid, upsample_factor, blur_radius);
         
         // Step 2: Get a fine grid at the new scale
-        let grid_fine = simulation.to_grid(current_scale);
+        let grid_fine = simulation.to_grid(current_scale).clone().normalize(0.1);
         
         // Step 3: Combine the blurred and fine grids
         let grid_sum = grid_blur + grid_fine;
+
+        let grid_sum  = box_blur(&grid_sum,blur_radius);
         
         // Step 4: Save the result
         let output_path = format!("dla_grid_step{}.txt", step);
@@ -59,7 +61,8 @@ fn main() -> Result<()> {
         }
         
         // Use this grid as the basis for the next iteration
-        current_grid = grid_sum;
+        // Normalize the grid so maximum value is 1.0
+        current_grid = grid_sum.clone().normalize(1.0);
     }
 
 

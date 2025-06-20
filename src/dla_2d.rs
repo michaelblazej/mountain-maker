@@ -65,6 +65,34 @@ impl Array2D {
     pub fn data(&self) -> &[f32] {
         &self.data
     }
+    
+    /// Normalize the array so the maximum value equals the specified target value
+    /// 
+    /// This scales all values proportionally so the maximum value in the array equals target_max
+    /// If the maximum value is 0, no normalization is done to avoid division by zero
+    /// 
+    /// Returns the normalized array (consumes self)
+    pub fn normalize(mut self, target_max: f32) -> Self {
+        // Find the current maximum value in the array
+        if let Some(max_value) = self.data.iter().cloned().fold(None, |max, x| {
+            match max {
+                None => Some(x),
+                Some(max) => Some(f32::max(max, x))
+            }
+        }) {
+            // Only normalize if the maximum is greater than zero (to avoid division by zero)
+            if max_value > 0.0 {
+                // Apply scaling to all elements
+                let scale_factor = target_max / max_value;
+                for value in &mut self.data {
+                    *value *= scale_factor;
+                }
+            }
+        }
+        
+        // Return self
+        self
+    }
 }
 
 // Implement the Add trait for Array2D, so we can use the + operator
