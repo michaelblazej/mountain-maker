@@ -45,12 +45,12 @@ pub fn export_array_to_glb(
             let x_pos = (x as f32 - (width as f32 / 2.0)) * scale_x;
             let y_pos = (y as f32 - (height as f32 / 2.0)) * scale_y;
             
-            // Add position using the mesh-tools Point3 type
-            positions.push(mesh_tools::compat::point3::new(x_pos, z_val, y_pos));
+            // Add position using the mesh-tools Point3 type - height on z-axis
+            positions.push(mesh_tools::compat::point3::new(x_pos, y_pos, z_val));
             
             // Calculate normal
             let normal = calculate_normal(array, x, y, width, height, scale_x, scale_y, scale_z);
-            normals.push(mesh_tools::compat::vector3::new(normal.0, normal.1, normal.2));
+            normals.push(mesh_tools::compat::vector3::new(normal.0, normal.2, normal.1));
             
             // Add texture coordinates
             texcoords.push(mesh_tools::compat::vector2::new(
@@ -137,6 +137,7 @@ fn calculate_normal(
     let dy = (get_height(x_i, y_i + 1) - get_height(x_i, y_i - 1)) / (2.0 * scale_y);
     
     // Cross product of tangent vectors gives us the normal
+    // For z-axis as height, normal components are arranged differently
     let nx = -dx;
     let ny = -dy;
     let nz = 1.0;
