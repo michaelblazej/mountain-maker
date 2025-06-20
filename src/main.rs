@@ -1,9 +1,11 @@
 mod dla_2d;
 mod blur;
+mod export;
 
 use anyhow::Result;
 use dla_2d::{DlaSimulation, DlaParameters, Array2D};
 use blur::{upsample, upsample_and_blur, box_blur, mean_filter, gaussian_filter, BlurOptions};
+use export::export_array_to_glb;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -45,7 +47,8 @@ fn main() -> Result<()> {
         let grid_blur = upsample_and_blur(&current_grid, upsample_factor, blur_radius);
         
         // Step 2: Get a fine grid at the new scale
-        let grid_fine = simulation.to_grid(current_scale).clone().normalize(0.1);
+        let mut grid_fine = simulation.to_grid(current_scale);
+        grid_fine.normalize(0.1);
         
         // Step 3: Combine the blurred and fine grids
         let grid_sum = grid_blur + grid_fine;
@@ -62,19 +65,25 @@ fn main() -> Result<()> {
         
         // Use this grid as the basis for the next iteration
         // Normalize the grid so maximum value is 1.0
-        current_grid = grid_sum.clone().normalize(1.0);
+        let mut next_grid = grid_sum.clone();
+        next_grid.normalize(1.0);
+        current_grid = next_grid;
     }
-
-
-
-
-
-
-
-
+    
+    // Export the final grid as a GLB file
+    let final_grid = &current_grid;
+    let output_glb_path = "mountain_mesh.glb";
+    
+    println!("Exporting 3D mesh to GLB file: {}", output_glb_path);
+    // Scale factors can be adjusted to control the appearance of the terrain
+    if let Err(e) = export_array_to_glb(final_grid, 1.0, 1.0, 10.0, output_glb_path) {
+        eprintln!("Error exporting to GLB: {}", e);
+    } else {
+        println!("Successfully exported 3D mesh to: {}", output_glb_path);
+    }
     
     println!("\nDone! You can visualize the CSV files with a spreadsheet program ");
-    println!("or using a visualization tool to see the patterns created.");
+    println!("or use a 3D viewer to open the GLB file and see the 3D terrain model.");
     
     Ok(())
 }
