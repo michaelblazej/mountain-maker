@@ -2,6 +2,7 @@ use anyhow::Result;
 use glam::Vec2;
 use rand::prelude::*;
 use std::collections::HashMap;
+use std::ops::Add;
 
 /// A simple 2D array representation
 #[derive(Debug, Clone)]
@@ -63,6 +64,32 @@ impl Array2D {
     /// Get a reference to the underlying data
     pub fn data(&self) -> &[f32] {
         &self.data
+    }
+}
+
+// Implement the Add trait for Array2D, so we can use the + operator
+impl Add for Array2D {
+    type Output = Array2D;
+    
+    /// Add two arrays element-wise
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the arrays have different dimensions
+    fn add(self, other: Array2D) -> Self::Output {
+        // Check if the dimensions match
+        assert_eq!(self.width, other.width, "Arrays must have the same width");
+        assert_eq!(self.height, other.height, "Arrays must have the same height");
+        
+        // Create a new array with the same dimensions
+        let mut result = Array2D::new(self.width, self.height, 0.0);
+        
+        // Add the values element-wise
+        for i in 0..self.data.len() {
+            result.data[i] = self.data[i] + other.data[i];
+        }
+        
+        result
     }
 }
 

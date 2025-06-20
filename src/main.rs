@@ -26,60 +26,49 @@ fn main() -> Result<()> {
     println!("Running DLA simulation...");
     simulation.run()?;
     
-    // Export the base simulation to a CSV file
-    let output_path = "dla_base.csv";
-    export_to_csv(&simulation, output_path)?;
-    println!("Base DLA simulation exported to {}", output_path);
+    // Start to build the mountains
+    let blur_options = Some(BlurOptions{strength: 0.7});
+    let blur_radius = 4; // Blur radius for upsample_and_blur
+    let upsample_factor = 2; // Upscale factor for each iteration
+    let num_steps = 10; // Number of iterations
     
-    // Convert to grid and export at different resolutions
-    // Standard resolution (1:1)
-    let grid = simulation.to_grid(1);
-    let output_path = "dla_base_grid.txt";
-    export_grid_to_file(&grid, output_path)?;
-    println!("Base DLA grid exported to {}", output_path);
+    // Initialize with the base grid
+    let mut current_grid = simulation.to_grid(1);
+    let mut current_scale = 1;
     
-    // Higher resolution with connected points
-    let high_res_grid = simulation.to_grid(3);
-    let output_path = "dla_base_grid_hires.txt";
-    export_grid_to_file(&high_res_grid, output_path)?;
-    println!("High-resolution DLA grid exported to {}", output_path);
-    
-    // Create an upsampled grid with linear interpolation
-    let upsampled_grid = upsample(&grid, 4, Some(BlurOptions { strength: 0.7 }));
-    let output_path = "dla_base_grid_upsampled.txt";
-    export_grid_to_file(&upsampled_grid, output_path)?;
-    println!("Upsampled DLA grid exported to {}", output_path);
-    
-    // Create a blurred version of the upsampled grid
-    let blurred_grid = box_blur(&upsampled_grid, 1);
-    let output_path = "dla_base_grid_blurred.txt";
-    export_grid_to_file(&blurred_grid, output_path)?;
-    println!("Blurred DLA grid exported to {}", output_path);
-    
-    // Combined upsampling and blurring in one step
-    let smooth_grid = upsample_and_blur(&grid, 4, 1);
-    let output_path = "dla_base_grid_smooth.txt";
-    export_grid_to_file(&smooth_grid, output_path)?;
-    println!("Smooth DLA grid exported to {}", output_path);
-    
-    // Apply mean filter convolution
-    let mean_grid = mean_filter(&upsampled_grid, 3);
-    let output_path = "dla_base_grid_mean.txt";
-    export_grid_to_file(&mean_grid, output_path)?;
-    println!("Mean filtered grid exported to {}", output_path);
-    
-    // Apply Gaussian filter convolution
-    let gaussian_grid = gaussian_filter(&upsampled_grid, 5, 1.0);
-    let output_path = "dla_base_grid_gaussian.txt";
-    export_grid_to_file(&gaussian_grid, output_path)?;
-    println!("Gaussian filtered grid exported to {}", output_path);
-    
-    // Print some statistics
-    let (base_width, base_height) = simulation.get_dimensions();
-    
-    println!("\nStatistics:");
-    println!("  Base simulation:  {} particles, {}x{} dimensions", 
-             simulation.particles.len(), base_width, base_height);
+    // Loop through the steps to iteratively refine the mountain
+    for step in 1..=num_steps {
+        // Calculate the scale for the fine grid in this step
+        current_scale *= upsample_factor;
+        
+        // Step 1: Blur and upsample the current grid
+        let grid_blur = upsample_and_blur(&current_grid, upsample_factor, blur_radius);
+        
+        // Step 2: Get a fine grid at the new scale
+        let grid_fine = simulation.to_grid(current_scale);
+        
+        // Step 3: Combine the blurred and fine grids
+        let grid_sum = grid_blur + grid_fine;
+        
+        // Step 4: Save the result
+        let output_path = format!("dla_grid_step{}.txt", step);
+        if let Err(e) = export_grid_to_file(&grid_sum, &output_path) {
+            eprintln!("Error exporting grid for step {}: {}", step, e);
+        } else {
+            println!("Exported mountain grid for step {} to {}", step, output_path);
+        }
+        
+        // Use this grid as the basis for the next iteration
+        current_grid = grid_sum;
+    }
+
+
+
+
+
+
+
+
     
     println!("\nDone! You can visualize the CSV files with a spreadsheet program ");
     println!("or using a visualization tool to see the patterns created.");
