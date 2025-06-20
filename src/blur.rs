@@ -68,8 +68,6 @@ pub fn upsample(grid: &Array2D, scale: usize, options: Option<BlurOptions>) -> A
             let bottom = lerp(v01, v11, tx);
             let value = lerp(top, bottom, ty);
             
-            // Convert to binary result if needed
-            let value = if value >= 0.5 { 1.0 } else { 0.0 };
             result.set(x, y, value);
         }
     }
@@ -122,8 +120,7 @@ pub fn box_blur(grid: &Array2D, radius: usize) -> Array2D {
             };
             
             // Set the result
-            let value = if avg >= 0.5 { 1.0 } else { 0.0 };
-            result.set(x, y, value);
+            result.set(x, y, avg);
         }
     }
     

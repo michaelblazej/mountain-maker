@@ -10,6 +10,7 @@ If no arguments are provided, it will look for dla_base_grid.txt
 
 import sys
 import os
+import pdb
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
@@ -37,7 +38,7 @@ def read_grid_csv(filepath):
                 
             # Parse CSV values as integers
             try:
-                row = [int(val) for val in line.strip().split(',')]
+                row = [float(val) for val in line.strip().split(',')]
                 data.append(row)
             except Exception as e:
                 print(f"Warning: Error parsing line: {e}")
