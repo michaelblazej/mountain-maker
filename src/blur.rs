@@ -38,7 +38,7 @@ pub fn upsample(grid: &Array2D, scale: usize, options: Option<BlurOptions>) -> A
     let dst_height = src_height * scale;
     
     // Create target grid
-    let mut result = Array2D::new(dst_width, dst_height, 0);
+    let mut result = Array2D::new(dst_width, dst_height, 0.0);
     
     // For each pixel in the destination grid
     for y in 0..dst_height {
@@ -57,19 +57,19 @@ pub fn upsample(grid: &Array2D, scale: usize, options: Option<BlurOptions>) -> A
             let tx = (src_x - x0 as f32) * options.strength;
             let ty = (src_y - y0 as f32) * options.strength;
             
-            // Get source values, defaulting to 0 for out of bounds
-            let v00 = grid.get(x0, y0).unwrap_or(0) as f32;
-            let v01 = grid.get(x0, y1).unwrap_or(0) as f32;
-            let v10 = grid.get(x1, y0).unwrap_or(0) as f32;
-            let v11 = grid.get(x1, y1).unwrap_or(0) as f32;
+            // Get source values, defaulting to 0.0 for out of bounds
+            let v00 = grid.get(x0, y0).unwrap_or(0.0);
+            let v01 = grid.get(x0, y1).unwrap_or(0.0);
+            let v10 = grid.get(x1, y0).unwrap_or(0.0);
+            let v11 = grid.get(x1, y1).unwrap_or(0.0);
             
             // Bilinear interpolation
             let top = lerp(v00, v10, tx);
             let bottom = lerp(v01, v11, tx);
             let value = lerp(top, bottom, ty);
             
-            // Round and convert back to i32
-            let value = if value >= 0.5 { 1 } else { 0 };
+            // Convert to binary result if needed
+            let value = if value >= 0.5 { 1.0 } else { 0.0 };
             result.set(x, y, value);
         }
     }
@@ -88,12 +88,12 @@ pub fn box_blur(grid: &Array2D, radius: usize) -> Array2D {
     let height = grid.height();
     
     // Create result grid
-    let mut result = Array2D::new(width, height, 0);
+    let mut result = Array2D::new(width, height, 0.0);
     
     // For each pixel in the grid
     for y in 0..height {
         for x in 0..width {
-            let mut sum = 0;
+            let mut sum = 0.0;
             let mut count = 0;
             
             // Sample the surrounding pixels within radius
@@ -122,7 +122,7 @@ pub fn box_blur(grid: &Array2D, radius: usize) -> Array2D {
             };
             
             // Set the result
-            let value = if avg >= 0.5 { 1 } else { 0 };
+            let value = if avg >= 0.5 { 1.0 } else { 0.0 };
             result.set(x, y, value);
         }
     }
@@ -228,7 +228,7 @@ pub fn convolve(grid: &Array2D, kernel: &Kernel) -> Array2D {
     let pad_y = kh / 2;
     
     // Create result grid
-    let mut result = Array2D::new(width, height, 0);
+    let mut result = Array2D::new(width, height, 0.0);
     
     // For each pixel in the grid
     for y in 0..height {
@@ -249,13 +249,13 @@ pub fn convolve(grid: &Array2D, kernel: &Kernel) -> Array2D {
                     
                     // Get the input value and kernel weight
                     if let Some(value) = grid.get(ix as usize, iy as usize) {
-                        sum += value as f32 * kernel.get(kx, ky);
+                        sum += value * kernel.get(kx, ky);
                     }
                 }
             }
             
             // Convert to binary result
-            let value = if sum >= 0.5 { 1 } else { 0 };
+            let value = if sum >= 0.5 { 1.0 } else { 0.0 };
             result.set(x, y, value);
         }
     }

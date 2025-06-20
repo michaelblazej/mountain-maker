@@ -10,13 +10,13 @@ pub struct Array2D {
     width: usize,
     /// Height of the 2D array
     height: usize,
-    /// Data storage in row-major order
-    data: Vec<i32>,
+    /// Data storage in row-major order (floating point)
+    data: Vec<f32>,
 }
 
 impl Array2D {
     /// Create a new 2D array with the specified dimensions, filled with the given value
-    pub fn new(width: usize, height: usize, initial_value: i32) -> Self {
+    pub fn new(width: usize, height: usize, initial_value: f32) -> Self {
         let data = vec![initial_value; width * height];
         Array2D {
             width,
@@ -26,7 +26,7 @@ impl Array2D {
     }
     
     /// Get the value at the specified coordinates
-    pub fn get(&self, x: usize, y: usize) -> Option<i32> {
+    pub fn get(&self, x: usize, y: usize) -> Option<f32> {
         if x >= self.width || y >= self.height {
             return None;
         }
@@ -36,7 +36,7 @@ impl Array2D {
     }
     
     /// Set the value at the specified coordinates
-    pub fn set(&mut self, x: usize, y: usize, value: i32) -> bool {
+    pub fn set(&mut self, x: usize, y: usize, value: f32) -> bool {
         if x >= self.width || y >= self.height {
             return false;
         }
@@ -61,7 +61,7 @@ impl Array2D {
     }
     
     /// Get a reference to the underlying data
-    pub fn data(&self) -> &[i32] {
+    pub fn data(&self) -> &[f32] {
         &self.data
     }
 }
@@ -410,7 +410,7 @@ impl DlaSimulation {
         let height = ((max_y - min_y + 1) * resolution as i32) as usize;
         
         // Create a new grid filled with zeros
-        let mut grid = Array2D::new(width, height, 0);
+        let mut grid = Array2D::new(width, height, 0.0);
         
         // First pass: Mark all particle positions
         let mut particle_positions = Vec::new();
@@ -419,8 +419,8 @@ impl DlaSimulation {
             let grid_x = ((p.x - min_x) * resolution as i32) as usize;
             let grid_y = ((p.y - min_y) * resolution as i32) as usize;
             
-            // Set the grid value to 1 where a particle exists
-            grid.set(grid_x, grid_y, 1);
+            // Set the grid value to 1.0 where a particle exists
+            grid.set(grid_x, grid_y, 1.0);
             particle_positions.push((grid_x, grid_y, data.index));
         }
         
@@ -511,7 +511,7 @@ impl DlaSimulation {
         loop {
             // Set the current pixel if it's within bounds
             if x >= 0 && y >= 0 && x < grid.width() as isize && y < grid.height() as isize {
-                grid.set(x as usize, y as usize, 1);
+                grid.set(x as usize, y as usize, 1.0);
             }
             
             // Check if we've reached the end point
@@ -616,7 +616,7 @@ impl DlaSimulation {
         for y in 1..height-1 {
             for x in 1..width-1 {
                 // Skip cells that are already filled
-                if original.get(x, y) == Some(1) {
+                if original.get(x, y) == Some(1.0) {
                     continue;
                 }
                 
@@ -633,7 +633,7 @@ impl DlaSimulation {
                         let nx = (x as isize + dx) as usize;
                         let ny = (y as isize + dy) as usize;
                         
-                        if nx < width && ny < height && original.get(nx, ny) == Some(1) {
+                        if nx < width && ny < height && original.get(nx, ny) == Some(1.0) {
                             filled_count += 1;
                         }
                     }
@@ -642,7 +642,7 @@ impl DlaSimulation {
                 // Fill this cell if it has enough filled neighbors
                 // This creates a more connected appearance by filling in small gaps
                 if filled_count >= 5 { // Threshold can be adjusted for different connectivity levels
-                    grid.set(x, y, 1);
+                    grid.set(x, y, 1.0);
                 }
             }
         }

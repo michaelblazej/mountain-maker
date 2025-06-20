@@ -103,7 +103,7 @@ fn export_to_csv(simulation: &DlaSimulation, path: &str) -> Result<()> {
     Ok(())
 }
 
-/// Export a 2D grid to a text file
+/// Export a 2D grid to a CSV file that visualize.py can read
 fn export_grid_to_file(grid: &Array2D, path: &str) -> Result<()> {
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
@@ -111,18 +111,30 @@ fn export_grid_to_file(grid: &Array2D, path: &str) -> Result<()> {
     // Write grid dimensions as a header comment
     writeln!(writer, "# Grid dimensions: {} x {}", grid.width(), grid.height())?;
     
-    // Write each row of the grid
+    // Write each row of the grid as CSV
     for y in 0..grid.height() {
-        let mut line = String::with_capacity(grid.width());
+        let mut line = String::new();
+        
         for x in 0..grid.width() {
+            // Add comma separator between values (except for first value)
+            if x > 0 {
+                line.push(',');
+            }
+            
+            // Write the value directly (as int or float)
             if let Some(value) = grid.get(x, y) {
-                if value > 0 {
-                    line.push('#'); // Use '#' character for particles
+                // For cleaner visualizations, we'll keep 0.0 and 1.0 as integers
+                if value == 0.0 || value == 1.0 {
+                    line.push_str(&format!("{}", value as i32));
                 } else {
-                    line.push('.');  // Use '.' for empty space
+                    // Format floating point values with limited precision
+                    line.push_str(&format!("{:.3}", value));
                 }
+            } else {
+                line.push('0');
             }
         }
+        
         writeln!(writer, "{}", line)?;
     }
     
