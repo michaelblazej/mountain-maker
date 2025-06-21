@@ -133,9 +133,23 @@ fn main() -> Result<()> {
         let mut grid_fine = simulation.to_grid(current_scale);
         grid_fine.normalize(0.1);
         
+        // Save fine grid if step saving is enabled
+        if cli.save_steps {
+            let step_dir = cli.step_dir.as_ref().map_or("".to_string(), |p| {
+                format!("{}/", p.to_string_lossy())
+            });
+            let fine_output_path = format!("{}{}_fine_step{}.txt", step_dir, "dla_grid", step);
+            if let Err(e) = export_grid_to_file(&grid_fine, &fine_output_path) {
+                eprintln!("Error exporting fine grid for step {}: {}", step, e);
+            } else {
+                println!("Exported fine mountain grid for step {} to {}", step, fine_output_path);
+            }
+        }
+        
         // Step 3: Combine the blurred and fine grids
         let grid_sum = grid_blur + grid_fine;
 
+        let grid_sum = box_blur(&grid_sum, blur_radius);
         let grid_sum = box_blur(&grid_sum, blur_radius);
         
         // Step 4: Save the result if step saving is enabled

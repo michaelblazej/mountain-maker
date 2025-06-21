@@ -591,11 +591,12 @@ impl DlaSimulation {
                     let dist = ((x1 as isize - x2 as isize).abs() + (y1 as isize - y2 as isize).abs()) as usize;
                     
                     // If particles are close but not directly adjacent, connect them
-                    if dist > 1 && dist <= connection_threshold {
+                    // Skip if they share the same x or y coordinate (avoiding straight horizontal/vertical lines)
+                    if dist > 1 && dist <= connection_threshold && x1 != x2 && y1 != y2 {
                         self.draw_line(&mut grid, x1, y1, x2, y2);
                     }
                 }
-            }
+            } 
             
             // 3. Fill in small gaps
             self.fill_gaps(&mut grid);

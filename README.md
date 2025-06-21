@@ -1,6 +1,6 @@
 # Mountain Maker
 
-Mountain Maker is a Rust application that procedurally generates 3D terrain meshes using Diffusion Limited Aggregation (DLA) algorithms. The program creates realistic-looking mountains and terrain that can be exported to GLB format for use in 3D applications.
+Mountain Maker is a Rust application that procedurally generates 3D terrain meshes using Diffusion Limited Aggregation (DLA) algorithms. The program creates realistic-looking mountains and terrain that can be exported to GLB format for use in 3D applications. This [video](https://youtu.be/gsJHzBTPG0Y?si=AFZStsZopLtHgdF5) was the inspiration.
 
 ![Example Generated Terrain](docs/example.png)
 
