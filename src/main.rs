@@ -66,15 +66,15 @@ struct Cli {
     #[arg(help = "Output path for the GLB file")]    
     output: String,
 
-    #[arg(long, default_value_t = 200.0)]
+    #[arg(long, default_value_t = 1000.0)]
     #[arg(help = "Desired X dimension (width) in world units")]
     dim_x: f32,
 
-    #[arg(long, default_value_t = 200.0)]
+    #[arg(long, default_value_t = 1000.0)]
     #[arg(help = "Desired Y dimension (depth) in world units")]
     dim_y: f32,
 
-    #[arg(long, default_value_t = 50.0)]
+    #[arg(long, default_value_t = 200.0)]
     #[arg(help = "Desired Z dimension (height) in world units")]
     dim_z: f32,
 
