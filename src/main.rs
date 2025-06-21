@@ -66,17 +66,17 @@ struct Cli {
     #[arg(help = "Output path for the GLB file")]    
     output: String,
 
-    #[arg(long, default_value_t = 1.0)]
-    #[arg(help = "X-axis scale factor")]
-    scale_x: f32,
-
-    #[arg(long, default_value_t = 1.0)]
-    #[arg(help = "Y-axis scale factor")]
-    scale_y: f32,
+    #[arg(long, default_value_t = 200.0)]
+    #[arg(help = "Desired X dimension (width) in world units")]
+    dim_x: f32,
 
     #[arg(long, default_value_t = 200.0)]
-    #[arg(help = "Z-axis height scale factor")]
-    scale_z: f32,
+    #[arg(help = "Desired Y dimension (depth) in world units")]
+    dim_y: f32,
+
+    #[arg(long, default_value_t = 50.0)]
+    #[arg(help = "Desired Z dimension (height) in world units")]
+    dim_z: f32,
 
     #[arg(long, default_value_t = false)]
     #[arg(help = "Save intermediate step files")]
@@ -176,12 +176,24 @@ fn main() -> Result<()> {
     let final_grid = &current_grid;
     
     println!("Exporting 3D mesh to GLB file: {}", cli.output);
-    // Use scale factors from CLI
+    
+    // Calculate scale factors based on desired dimensions
+    // The grid is normalized to 1.0, so we multiply by the desired dimension
+    let grid_width = final_grid.width() as f32;
+    let grid_height = final_grid.height() as f32;
+    
+    // Calculate scales to achieve the desired dimensions
+    let scale_x = cli.dim_x / grid_width;
+    let scale_y = cli.dim_y / grid_height;
+    let scale_z = cli.dim_z; // Z is already normalized to 1.0 max
+    
+    println!("Using dimensions: {}x{}x{} world units", cli.dim_x, cli.dim_y, cli.dim_z);
+    
     if let Err(e) = export_array_to_glb(
         final_grid, 
-        cli.scale_x, 
-        cli.scale_y, 
-        cli.scale_z, 
+        scale_x, 
+        scale_y, 
+        scale_z, 
         &cli.output
     ) {
         eprintln!("Error exporting to GLB: {}", e);
