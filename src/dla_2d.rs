@@ -530,15 +530,36 @@ impl DlaSimulation {
         // Create a new grid filled with zeros
         let mut grid = Array2D::new(width, height, 0.0);
         
-        // First pass: Mark all particle positions
+        // Calculate the center of the particle structure
+        let center_x = (min_x + max_x) as f32 / 2.0;
+        let center_y = (min_y + max_y) as f32 / 2.0;
+        
+        // Calculate the maximum distance from center for normalization
+        let mut max_distance = 0.0f32;
+        for (p, _) in &self.particles {
+            let dx = p.x as f32 - center_x;
+            let dy = p.y as f32 - center_y;
+            let distance = (dx * dx + dy * dy).sqrt();
+            max_distance = max_distance.max(distance);
+        }
+        max_distance = max_distance* 0.4;
+        
+        // First pass: Mark all particle positions with distance-based values
         let mut particle_positions = Vec::new();
         for (p, data) in &self.particles {
             // Map particle coordinates to high-resolution grid indices
             let grid_x = ((p.x - min_x) * resolution as i32) as usize;
             let grid_y = ((p.y - min_y) * resolution as i32) as usize;
             
-            // Set the grid value to 1.0 where a particle exists
-            grid.set(grid_x, grid_y, 1.0);
+            // Calculate distance from center and normalize it
+            let dx = p.x as f32 - center_x;
+            let dy = p.y as f32 - center_y;
+            let distance = (dx * dx + dy * dy).sqrt();
+            let normalized_distance = if max_distance > 0.0 { distance / max_distance } else { 0.0 };
+            
+            // Set grid value based on distance: closer to center = higher value, further = closer to 0
+            let value = 1.0 - normalized_distance;
+            grid.set(grid_x, grid_y, value);
             particle_positions.push((grid_x, grid_y, data.index));
         }
         

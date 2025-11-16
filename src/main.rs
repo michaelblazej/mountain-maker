@@ -1,6 +1,7 @@
 mod dla_2d;
 mod blur;
 mod export;
+mod textures;
 
 use anyhow::Result;
 use dla_2d::{DlaSimulation, DlaParameters, Array2D};
@@ -85,6 +86,36 @@ struct Cli {
     #[arg(long)]
     #[arg(help = "Directory to save intermediate step files")]
     step_dir: Option<PathBuf>,
+
+    // Texture parameters
+    #[arg(long, default_value_t = 0.1)]
+    #[arg(help = "Texture scale in world units (lower = more repetition)")]
+    world_uv_scale: f32,
+
+    #[arg(long, default_value_t = false)]
+    #[arg(help = "Enable procedural texture generation")]
+    enable_textures: bool,
+
+    #[arg(long, default_value_t = 512)]
+    #[arg(help = "Resolution of procedural textures (512, 1024, 2048)")]
+    texture_resolution: u32,
+
+    #[arg(long, default_value_t = false)]
+    #[arg(help = "Generate UV test texture for debugging")]
+    uv_test: bool,
+
+    // Normal map parameters
+    #[arg(long, default_value_t = false)]
+    #[arg(help = "Enable procedural normal map generation (requires --enable-textures)")]
+    enable_normal_maps: bool,
+
+    #[arg(long, default_value_t = 1.0)]
+    #[arg(help = "Normal map generation strength (0.5-2.0, higher = more pronounced bumps)")]
+    normal_strength: f32,
+
+    #[arg(long, default_value_t = 1.0)]
+    #[arg(help = "glTF normal scale parameter (0.5-2.0, runtime bump intensity)")]
+    normal_scale: f32,
 }
 
 fn main() -> Result<()> {
@@ -169,6 +200,17 @@ fn main() -> Result<()> {
         // Normalize the grid so maximum value is 1.0
         let mut next_grid = grid_sum.clone();
         next_grid.normalize(1.0);
+        
+        // Clamp negative values to zero
+        for y in 0..next_grid.height() {
+            for x in 0..next_grid.width() {
+                let value = next_grid.get(x, y);
+                if value < Some(0.0) {
+                    next_grid.set(x, y, 0.0);
+                }
+            }
+        }
+        
         current_grid = next_grid;
     }
     
@@ -188,13 +230,26 @@ fn main() -> Result<()> {
     let scale_z = cli.dim_z; // Z is already normalized to 1.0 max
     
     println!("Using dimensions: {}x{}x{} world units", cli.dim_x, cli.dim_y, cli.dim_z);
-    
+
+    // Validate normal map parameters
+    if cli.enable_normal_maps && !cli.enable_textures {
+        eprintln!("Warning: --enable-normal-maps requires --enable-textures");
+        eprintln!("Normal maps will be ignored.");
+    }
+
     if let Err(e) = export_array_to_glb(
-        final_grid, 
-        scale_x, 
-        scale_y, 
-        scale_z, 
-        &cli.output
+        final_grid,
+        scale_x,
+        scale_y,
+        scale_z,
+        &cli.output,
+        cli.world_uv_scale,
+        cli.enable_textures,
+        cli.texture_resolution,
+        cli.uv_test,
+        cli.enable_normal_maps,
+        cli.normal_strength,
+        cli.normal_scale,
     ) {
         eprintln!("Error exporting to GLB: {}", e);
     } else {
