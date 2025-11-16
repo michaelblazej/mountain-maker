@@ -116,6 +116,15 @@ struct Cli {
     #[arg(long, default_value_t = 1.0)]
     #[arg(help = "glTF normal scale parameter (0.5-2.0, runtime bump intensity)")]
     normal_scale: f32,
+
+    // Biome and PBR parameters
+    #[arg(long, default_value = "alpine")]
+    #[arg(help = "Mountain biome type: alpine, desert, volcanic, or arctic")]
+    biome: String,
+
+    #[arg(long, default_value_t = false)]
+    #[arg(help = "Enable full PBR materials with roughness maps (requires --enable-textures)")]
+    enable_pbr: bool,
 }
 
 fn main() -> Result<()> {
@@ -237,6 +246,28 @@ fn main() -> Result<()> {
         eprintln!("Normal maps will be ignored.");
     }
 
+    // Validate PBR parameters
+    if cli.enable_pbr && !cli.enable_textures {
+        eprintln!("Warning: --enable-pbr requires --enable-textures");
+        eprintln!("PBR materials will be ignored.");
+    }
+
+    // Parse and validate biome
+    use textures::BiomeType;
+    let biome_type = BiomeType::from_str(&cli.biome);
+    if biome_type.is_none() {
+        eprintln!("Warning: Invalid biome '{}', using 'alpine' instead", cli.biome);
+        eprintln!("Valid biomes: alpine, desert, volcanic, arctic");
+    }
+    let biome = biome_type.unwrap_or(BiomeType::Alpine);
+
+    if cli.enable_textures {
+        println!("Using {} biome textures", biome.name());
+        if cli.enable_pbr {
+            println!("PBR materials enabled (with roughness maps)");
+        }
+    }
+
     if let Err(e) = export_array_to_glb(
         final_grid,
         scale_x,
@@ -250,6 +281,8 @@ fn main() -> Result<()> {
         cli.enable_normal_maps,
         cli.normal_strength,
         cli.normal_scale,
+        biome,
+        cli.enable_pbr,
     ) {
         eprintln!("Error exporting to GLB: {}", e);
     } else {

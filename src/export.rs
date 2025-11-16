@@ -4,6 +4,17 @@ use crate::textures::{
     generate_uv_test_texture,
     generate_grass_normal_map,
     generate_flat_normal_map,
+    BiomeType,
+    BiomeConfig,
+    generate_rock_texture_typed,
+    generate_snow_texture_typed,
+    generate_base_material_texture,
+    generate_rock_roughness_map,
+    generate_snow_roughness_map,
+    generate_base_material_roughness_map,
+    generate_terrain_texture,
+    generate_terrain_normal_map,
+    generate_terrain_roughness_map,
 };
 use anyhow::Result;
 use mesh_tools::GltfBuilder;
@@ -25,6 +36,8 @@ use mesh_tools::material::MaterialBuilder;
 /// * `enable_normal_maps` - Whether to generate tangent-space normal maps
 /// * `normal_strength` - Normal map generation strength (0.5-2.0)
 /// * `normal_scale` - glTF normal scale parameter (0.5-2.0, runtime intensity)
+/// * `biome` - Mountain biome type for texture selection
+/// * `enable_pbr` - Enable full PBR materials with roughness maps
 ///
 /// # Returns
 /// * `Result<()>` - Success or error
@@ -41,6 +54,8 @@ pub fn export_array_to_glb(
     enable_normal_maps: bool,
     normal_strength: f32,
     normal_scale: f32,
+    biome: BiomeType,
+    enable_pbr: bool,
 ) -> Result<()> {
     // Create a new glTF builder
     let mut builder = GltfBuilder::new();
@@ -72,10 +87,10 @@ pub fn export_array_to_glb(
             let normal = calculate_normal(array, x, y, width, height, scale_x, scale_y, scale_z);
             normals.push(mesh_tools::compat::vector3::new(normal.0, normal.1, normal.2));
 
-            // Add texture coordinates using world-space UVs
-            // This ensures consistent texture density regardless of grid resolution
-            let u = x_pos * world_uv_scale;
-            let v = y_pos * world_uv_scale;
+            // Add texture coordinates using normalized UVs (0-1 range)
+            // This maps the entire mesh to the texture space without tiling
+            let u = x as f32 / (width as f32 - 1.0);
+            let v = y as f32 / (height as f32 - 1.0);
             texcoords.push(mesh_tools::compat::vector2::new(u, v));
         }
     }
@@ -104,15 +119,33 @@ pub fn export_array_to_glb(
     let terrain_material = if enable_textures {
         println!("Generating procedural texture ({}x{})...", texture_resolution, texture_resolution);
 
+        // Get biome configuration
+        let biome_config = BiomeConfig::from_biome_type(biome);
+
         // Generate procedural color texture
         let color_img = if uv_test {
             println!("Using UV test texture");
             generate_uv_test_texture(texture_resolution)
         } else {
-            // Use grass as primary texture for now
-            // Future enhancement: blend multiple textures based on height
-            println!("Using procedural grass texture");
-            generate_grass_texture(texture_resolution)
+            // Generate unique terrain-mapped texture (no tiling)
+            println!("Generating unique terrain texture for {} biome", biome.name());
+            println!("Texture resolution: {}x{}", texture_resolution, texture_resolution);
+
+            // Use default noise scale for natural variation
+            let noise_scale = 0.01;
+            let seed = 42; // Fixed seed for consistent results
+
+            generate_terrain_texture(
+                array,
+                texture_resolution,
+                texture_resolution,
+                biome,
+                scale_x,
+                scale_y,
+                scale_z,
+                noise_scale,
+                seed,
+            )
         };
 
         // Convert RgbaImage to DynamicImage and create color texture
@@ -122,41 +155,83 @@ pub fn export_array_to_glb(
             mesh_tools::texture::TextureFormat::PNG,
         )?;
 
-        // Create material with or without normal maps
-        let material = if enable_normal_maps {
+        // Generate optional normal map
+        let normal_texture_idx = if enable_normal_maps {
             println!("Generating procedural normal map ({}x{})...", texture_resolution, texture_resolution);
 
-            // Generate normal map
+            // Generate terrain-aware normal map
             let normal_img = if uv_test {
                 println!("Using flat normal map for UV test");
                 generate_flat_normal_map(texture_resolution)
             } else {
-                println!("Using procedural grass normal map (strength: {})", normal_strength);
-                generate_grass_normal_map(texture_resolution, normal_strength)
+                println!("Using terrain-aware normal map (strength: {})", normal_strength);
+                let seed = 42;
+                generate_terrain_normal_map(
+                    array,
+                    texture_resolution,
+                    texture_resolution,
+                    normal_strength,
+                    scale_x,
+                    scale_y,
+                    seed,
+                )
             };
 
             // Create normal texture
-            let normal_texture_idx = builder.create_texture_from_image(
+            Some(builder.create_texture_from_image(
                 Some("NormalTexture".to_string()),
                 &image::DynamicImage::ImageRgba8(normal_img),
                 mesh_tools::texture::TextureFormat::PNG,
-            )?;
-
-            // Create PBR material with both color and normal textures
-            MaterialBuilder::new(Some("TerrainMaterial".to_string()))
-                .with_base_color_texture(color_texture_idx, None)
-                .with_normal_texture(normal_texture_idx, None, Some(normal_scale))
-                .with_roughness_factor(0.8)
-                .with_metallic_factor(0.0)
-                .build()
+            )?)
         } else {
-            // Color texture only (backward compatible)
-            MaterialBuilder::new(Some("TerrainMaterial".to_string()))
-                .with_base_color_texture(color_texture_idx, None)
-                .with_roughness_factor(0.8)
-                .with_metallic_factor(0.0)
-                .build()
+            None
         };
+
+        // Generate optional roughness map for PBR
+        let roughness_texture_idx = if enable_pbr && !uv_test {
+            println!("Generating PBR roughness map ({}x{})...", texture_resolution, texture_resolution);
+
+            // Generate terrain-aware roughness map
+            let seed = 42;
+            let roughness_img = generate_terrain_roughness_map(
+                array,
+                texture_resolution,
+                texture_resolution,
+                biome,
+                scale_x,
+                scale_y,
+                seed,
+            );
+
+            // Create roughness texture
+            Some(builder.create_texture_from_image(
+                Some("RoughnessTexture".to_string()),
+                &image::DynamicImage::ImageRgba8(roughness_img),
+                mesh_tools::texture::TextureFormat::PNG,
+            )?)
+        } else {
+            None
+        };
+
+        // Build material based on available textures
+        let mut material_builder = MaterialBuilder::new(Some("TerrainMaterial".to_string()))
+            .with_base_color_texture(color_texture_idx, None);
+
+        // Add normal map if available
+        if let Some(normal_idx) = normal_texture_idx {
+            material_builder = material_builder.with_normal_texture(normal_idx, None, Some(normal_scale));
+        }
+
+        // Add roughness map or factor
+        if let Some(roughness_idx) = roughness_texture_idx {
+            material_builder = material_builder.with_metallic_roughness_texture(roughness_idx, None);
+        } else {
+            // Use biome roughness factor as fallback
+            material_builder = material_builder.with_roughness_factor(biome_config.rock_roughness);
+        }
+
+        // All natural materials have zero metallic
+        let material = material_builder.with_metallic_factor(0.0).build();
 
         // Add material directly to the gltf materials vector
         let material_index = if let Some(materials) = &mut builder.gltf.materials {
@@ -260,7 +335,22 @@ fn calculate_normal(
 /// * `Result<()>` - Success or error
 #[allow(dead_code)]
 pub fn export_array_to_glb_default(array: &Array2D, output_path: &str) -> Result<()> {
-    export_array_to_glb(array, 1.0, 1.0, 1.0, output_path, 0.1, false, 512, false, false, 1.0, 1.0)
+    export_array_to_glb(
+        array,
+        1.0,
+        1.0,
+        1.0,
+        output_path,
+        0.1,
+        false,
+        512,
+        false,
+        false,
+        1.0,
+        1.0,
+        BiomeType::Alpine,
+        false
+    )
 }
 
 #[cfg(test)]
@@ -364,6 +454,8 @@ mod tests {
             false, // enable_normal_maps
             1.0,  // normal_strength
             1.0,  // normal_scale
+            BiomeType::Alpine, // biome
+            false, // enable_pbr
         );
 
         assert!(result.is_ok(), "Failed to export GLB: {:?}", result.err());
@@ -490,6 +582,8 @@ mod tests {
             false, // enable_normal_maps
             1.0,  // normal_strength
             1.0,  // normal_scale
+            BiomeType::Alpine, // biome
+            false, // enable_pbr
         );
 
         assert!(result.is_ok(), "Failed to export GLB: {:?}", result.err());
